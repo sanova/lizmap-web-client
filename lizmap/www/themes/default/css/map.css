@@ -254,7 +254,7 @@ body {
 #toolbar div.menu-content,
 #menu div.menu-content {
   display : block;
-  padding : 1em 1em 1em 1em;
+  padding : 3px 2px 3px 2px;
 }
 
 #toolbar h3 .icon,
@@ -943,3 +943,20 @@ body {
   background : black;
 }
 
+.box-shadow-combo {
+	border: 0px;
+	-moz-box-shadow: 0 2px 4px rgba(0,0,0,.35);
+	-webkit-box-shadow: 0 2px 4px rgba(0, 0, 0, .35);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, .35); 	
+}
+
+/* Print menu */
+.containerValues { display: none; z-index: 1001; position: absolute; width: 270px; height: auto; background: white; }
+#menu-print-content { margin-bottom: 4px; }
+.containerValues div { font-size: 12px; padding: 2px; background: #F0F0F0; }
+.containerValues div:hover { cursor: pointer; background: #D8D8D8; }
+.titleItem { overflow: hidden; padding-left: 8px; padding-top: 3px; padding-bottom: 3px;}
+.titleItem:hover { cursor: pointer; background: #D8D8D8; }
+.titleItem div { display: inline-block; font-size: 12px; }
+.printValue, .printCheckbox { width: 150px; font-weight: 700; }
+.printDesc { width: 120px; }

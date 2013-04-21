@@ -8,7 +8,6 @@
 * @license    Mozilla Public License : http://www.mozilla.org/MPL/
 */
 
-
 var lizMap = function() {
   /**
    * PRIVATE Property: config
@@ -40,13 +39,20 @@ var lizMap = function() {
    * {Object({key:<OpenLayers.Control>})} Dictionary of controls
    */
   var controls = {};
+  
+  /**
+   * 
+   */
+  var printLayer;
+  
   /**
    * PRIVATE Property: tree
    * {object} The layer's tree
    */
   var tree = {config:{type:'group'}};
 
-
+  var pathImageDown = "../../../themes/default/css/images/arrow_down_16.png";
+  var pathImageChecked = "../../../themes/default/css/images/check2_16.png";
   /**
    * PRIVATE function: cleanName
    * cleaning layerName for class and layer
@@ -234,7 +240,50 @@ var lizMap = function() {
     
     
   }
-
+  
+  /*
+   * 
+   * 
+   */
+  function createPolygonToPrint() {
+		printLayer.removeAllFeatures();
+		
+		var scale = 0.6;
+		
+		var mapBound = map.getExtent();
+		var mapCenter = map.getCenter();
+		var origin = new OpenLayers.Geometry.Point(mapCenter.lon, mapCenter.lat);
+		
+		var c1 = {lon: mapBound.left, lat: mapBound.bottom};
+		var c2 = {lon: mapBound.left, lat: mapBound.top};
+		var c3 = {lon: mapBound.right, lat: mapBound.top};
+		var c4 = {lon: mapBound.right, lat: mapBound.bottom};
+		
+		var points = 
+		[
+		 	new OpenLayers.Geometry.Point(c1.lon, c1.lat),
+		 	new OpenLayers.Geometry.Point(c2.lon, c2.lat),
+		 	new OpenLayers.Geometry.Point(c3.lon, c3.lat),
+		 	new OpenLayers.Geometry.Point(c4.lon, c4.lat)
+		];
+		
+		var line = new OpenLayers.Geometry.LinearRing(points);
+		var polygon = new OpenLayers.Geometry.Polygon([line]);
+		
+		var feature = new OpenLayers.Feature.Vector(polygon);
+			feature.geometry.resize(scale, origin);
+		
+		printLayer.addFeatures([feature]);
+		
+	}
+ 
+  /*
+   * 
+   */
+  function createEditableLayer() {
+		var printLayer = new OpenLayers.Layer.Vector("printLayer");
+		return printLayer;
+	}
 
   /**
    * PRIVATE function: getLayerLegendGraphicUrl
@@ -678,8 +727,9 @@ var lizMap = function() {
     // creating the map
     OpenLayers.Util.DEFAULT_PRECISION=20; // default is 14 : change needed to avoid rounding problem with cache
     map = new OpenLayers.Map('map'
-      ,{controls:[new OpenLayers.Control.Navigation(),new OpenLayers.Control.ZoomBox({alwaysZoom:true})]
-       ,eventListeners:{
+      ,{controls:[new OpenLayers.Control.Navigation(),new OpenLayers.Control.ZoomBox({alwaysZoom:true}),new OpenLayers.Control.Navigation({dragPanOptions: {enableKinetic: true}})]
+      ,tileSize: new OpenLayers.Size(512,512) 
+      ,eventListeners:{
          zoomend: function(evt){
   // private treeTable
   var options = {
@@ -1407,8 +1457,9 @@ var lizMap = function() {
     controls['featureInfo'] = info;
 
     if ( ('print' in configOptions)
-        && configOptions['print'] == 'True')
-      addPrintControl();
+        && configOptions['print'] == 'True') {
+    	addPrintControl();
+    }
     else
       $('#togglePrint').parent().remove();
 
@@ -1439,15 +1490,26 @@ var lizMap = function() {
     //addComplexPrintControl();
   }
 
-  function deactivateToolControls( evt ) {
-    for (var id in controls) {
-      var ctrl = controls[id];
-      if (evt && ('object' in evt) && ctrl == evt.object)
-        continue;
-      if (ctrl.type == OpenLayers.Control.TYPE_TOOL)
-        ctrl.deactivate();
-    }
-    return true;
+//  function deactivateToolControls( evt ) {
+//    for (var id in controls) {
+//      var ctrl = controls[id];
+//      if (evt && ('object' in evt) && ctrl == evt.object)
+//        continue;
+//      if (ctrl.type == OpenLayers.Control.TYPE_TOOL)
+//        ctrl.deactivate();
+//    }
+//    return true;
+//  }
+  
+  function deactivateToolControls(evt) {
+	  for (var key in controls) {
+		  var ctrl = controls[key];
+		  if(ctrl == evt.object || ctrl == evt)
+			  continue;
+		  else 
+			  ctrl.deactivate();
+	  }
+	  return true;
   }
 
   function addFeatureInfo() {
@@ -1532,122 +1594,175 @@ var lizMap = function() {
     var printCapabilities = {scales:[],layouts:[]};
     var composer = composers[0];
     var composerMap = composer.getElementsByTagName('ComposerMap');
-    if (composerMap.length != 0) {
-      composerMap = composerMap[0];
-      var mapWidth = Number(composerMap.getAttribute('width')) / ptTomm;
-      var mapHeight = Number(composerMap.getAttribute('height')) / ptTomm;
-      //for some strange reason we need to provide a "map" and a "size" object with identical content
-      printCapabilities.layouts.push({
-        "name": composer.getAttribute('name'),
-        "map": {
-          "width": mapWidth,
-          "height": mapHeight
-        },
-        "size": {
-          "width": mapWidth,
-          "height": mapHeight
-        },
-        "rotation": true
-      });
-      var layer = map.getLayersByName('Print');
-      if ( layer.length == 0 ) {
-        layer = new OpenLayers.Layer.Vector('Print',{
-          styleMap: new OpenLayers.StyleMap({
-            "default": new OpenLayers.Style({
-              fillColor: "#D43B19",
-              fillOpacity: 0.2,
-              strokeColor: "#CE1F2D",
-              strokeWidth: 1,
-            })
-          })
-        });
-        map.addLayer(layer);
-        layer.setVisibility(false);
-      } else
-        layer = layer[0];
-      if ( layer.features.length == 0 )
-        layer.addFeatures([
-            new OpenLayers.Feature.Vector(
-              new OpenLayers.Geometry.Polygon([
-                new OpenLayers.Geometry.LinearRing([
-                  new OpenLayers.Geometry.Point(-1, -1),
-                    new OpenLayers.Geometry.Point(1, -1),
-                    new OpenLayers.Geometry.Point(1, 1),
-                    new OpenLayers.Geometry.Point(-1, 1)
-                ])
-            ])
-          )
-        ]);
+    
+	if (composerMap.length != 0) {
+//      composerMap = composerMap[0];
+//      var mapWidth = Number(composerMap.getAttribute('width')) / ptTomm;
+//      var mapHeight = Number(composerMap.getAttribute('height')) / ptTomm;
+//      //for some strange reason we need to provide a "map" and a "size" object with identical content
+//      printCapabilities.layouts.push({
+//        "name": composer.getAttribute('name'),
+//        "map": {
+//          "width": mapWidth,
+//          "height": mapHeight
+//        },
+//        "size": {
+//          "width": mapWidth,
+//          "height": mapHeight
+//        },
+//        "rotation": true
+//      });
+//      var layer = map.getLayersByName('Print');
+//      if ( layer.length == 0 ) {
+//        layer = new OpenLayers.Layer.Vector('Print',{
+//          styleMap: new OpenLayers.StyleMap({
+//            "default": new OpenLayers.Style({
+//              fillColor: "#D43B19",
+//              fillOpacity: 0.2,
+//              strokeColor: "#CE1F2D",
+//              strokeWidth: 1,
+//            })
+//          })
+//        });
+//        map.addLayer(layer);
+//        layer.setVisibility(false);
+//      } else
+//        layer = layer[0];
+//      if ( layer.features.length == 0 )
+//        layer.addFeatures([
+//            new OpenLayers.Feature.Vector(
+//              new OpenLayers.Geometry.Polygon([
+//                new OpenLayers.Geometry.LinearRing([
+//                  new OpenLayers.Geometry.Point(-1, -1),
+//                    new OpenLayers.Geometry.Point(1, -1),
+//                    new OpenLayers.Geometry.Point(1, 1),
+//                    new OpenLayers.Geometry.Point(-1, 1)
+//                ])
+//            ])
+//          )
+//        ]);
+    	
     }
-    var dragCtrl = new OpenLayers.Control.DragFeature(layer,{
-      geometryTypes: ['OpenLayers.Geometry.Polygon'],
-      type:OpenLayers.Control.TYPE_TOOL,
-      eventListeners: {
-        "activate": function(evt) {
-          deactivateToolControls(evt);
-          $('#togglePrint').parent().addClass('active');
-          $('#print-menu').show();
-          updateSwitcherSize();
-          mAddMessage(lizDict['print.activate'],'info',true).addClass('print');
+	
+	createMenuPrint();
+	
+	printLayer = createEditableLayer();
+	map.addLayer(printLayer);
+	
+	var printCtrlMod = new OpenLayers.Control.ModifyFeature(printLayer, {
+	    type: OpenLayers.Control.TYPE_TOOL,
+	    mode: 	OpenLayers.Control.ModifyFeature.RESIZE | 
+	    		OpenLayers.Control.ModifyFeature.DRAG & 
+	    		~OpenLayers.Control.ModifyFeature.RESHAPE,
+	    eventListeners: {
+	    	"activate": function(evt) {
+	          deactivateToolControls(evt);
+	          $('#togglePrint').parent().addClass('active');
+	          $('#print-menu').show();
+	          updateSwitcherSize();
+	          mAddMessage(lizDict['print.activate'],'info',true).addClass('print');
+	          createPolygonToPrint();
+	        },
+	        "deactivate": function(evt) {
+	          $('#togglePrint').parent().removeClass('active');
+	          $('#print-menu').hide();
+	          updateSwitcherSize();
+	          $('#message .print').remove();
+	          printLayer.removeAllFeatures();
+	        }
+	     }
+	});
+	
+	map.addControl(printCtrlMod);	
+	controls['modPrint'] = printCtrlMod;
 
-          var units = map.getUnits();
-          var res = map.getResolution()/2;
-          var scale = OpenLayers.Util.getScaleFromResolution(res, units);
-          var center = map.getCenter();
-          var size = printCapabilities.layouts[0].size;
-          var unitsRatio = OpenLayers.INCHES_PER_UNIT[units];
-          var w = size.width / 72 / unitsRatio * scale / 2;
-          var h = size.height / 72 / unitsRatio * scale / 2;
-          var bounds = new OpenLayers.Bounds(center.lon - w, center.lat - h,
-            center.lon + w, center.lat + h);
-          var geom = bounds.toGeometry();
-          var feat = layer.features[0];
-          geom.id = feat.geometry.id;
-          feat.geometry = geom;
-          layer.setVisibility(true);
-          evt.object.clickFeature(feat);
-        },
-        "deactivate": function(evt) {
-          layer.setVisibility(false);
-          $('#togglePrint').parent().removeClass('active');
-          $('#print-menu').hide();
-          updateSwitcherSize();
-          $('#message .print').remove();
-        }
-      }
-    });
-    map.addControls([dragCtrl]);
-    controls['printDrag'] = dragCtrl;
-    $('#togglePrint').click(function() {
-      if (dragCtrl.active)
-        dragCtrl.deactivate();
-      else
-        dragCtrl.activate();
-      return false;
-    });
-    $('#print-menu button.btn-print-clear').click(function() {
-      dragCtrl.deactivate();
-      return false;
-    });
+//    var dragCtrl = new OpenLayers.Control.DragFeature(layer,{
+//      geometryTypes: ['OpenLayers.Geometry.Polygon'],
+//      type:OpenLayers.Control.TYPE_TOOL,
+//      eventListeners: {
+//        "activate": function(evt) {
+//          deactivateToolControls(evt);
+//          $('#togglePrint').parent().addClass('active');
+//          $('#print-menu').show();
+//          updateSwitcherSize();
+//          mAddMessage(lizDict['print.activate'],'info',true).addClass('print');
+//
+//          var units = map.getUnits();
+//          var res = map.getResolution()/2;
+//          var scale = OpenLayers.Util.getScaleFromResolution(res, units);
+//          var center = map.getCenter();
+//          var size = printCapabilities.layouts[0].size;
+//          var unitsRatio = OpenLayers.INCHES_PER_UNIT[units];
+//          var w = size.width / 72 / unitsRatio * scale / 2;
+//          var h = size.height / 72 / unitsRatio * scale / 2;
+//          var bounds = new OpenLayers.Bounds(center.lon - w, center.lat - h,
+//            center.lon + w, center.lat + h);
+//          var geom = bounds.toGeometry();
+//          var feat = layer.features[0];
+//          geom.id = feat.geometry.id;
+//          feat.geometry = geom;
+//          layer.setVisibility(true);
+//          evt.object.clickFeature(feat);
+//        },
+//        "deactivate": function(evt) {
+//          layer.setVisibility(false);
+//          $('#togglePrint').parent().removeClass('active');
+//          $('#print-menu').hide();
+//          updateSwitcherSize();
+//          $('#message .print').remove();
+//        }
+//      }
+//    });
+//    map.addControls([dragCtrl]);
+//    controls['printDrag'] = dragCtrl;
+//    $('#togglePrint').click(function() {
+//      if (dragCtrl.active)
+//        dragCtrl.deactivate();
+//      else
+//        dragCtrl.activate();
+//      return false;
+//    });
+//    $('#print-menu button.btn-print-clear').click(function() {
+//      dragCtrl.deactivate();
+//      return false;
+//    });
+	
+	$('#togglePrint').click(function() {
+		if (printCtrlMod.active) {
+			printCtrlMod.deactivate();
+		}
+		else {
+			printCtrlMod.activate();			
+		}
+		return false;
+	});
+	$('#print-menu button.btn-print-clear').click(function() {
+		printCtrlMod.deactivate();
+		return false;
+	});
+    	
     $('#print-menu button.btn-print-launch').click(function() {
       var composer = composers[0];
       var composerMap = composer.getElementsByTagName('ComposerMap');
       if (composerMap.length != 0) {
         composerMap = composerMap[0].getAttribute('name');
-        var extent = dragCtrl.layer.features[0].geometry.getBounds();
+        //var extent = printCtrlMod.layer.features[0].geometry.getBounds();
+        var extent = printLayer.features[0].geometry.getBounds();
+    	var valuesPrint = getValuesMenuPrint();
         var url = OpenLayers.Util.urlAppend(lizUrls.wms
           ,OpenLayers.Util.getParameterString(lizUrls.params)
         );
         url += '&SERVICE=WMS';
         //url += '&VERSION='+capabilities.version+'&REQUEST=GetPrint';
         url += '&VERSION=1.3&REQUEST=GetPrint';
-        url += '&FORMAT=pdf&EXCEPTIONS=application/vnd.ogc.se_inimage&TRANSPARENT=true';
+        url += '&FORMAT='+valuesPrint.format;
+        url += '&EXCEPTIONS=application/vnd.ogc.se_inimage&TRANSPARENT=true';
         url += '&SRS='+map.projection;
-        url += '&DPI=300';
-        url += '&TEMPLATE='+composer.getAttribute('name');
-        url += '&'+composerMap+':extent='+extent;
-        url += '&'+composerMap+':rotation=0';
-        url += '&'+composerMap+':scale='+map.getScale()/2;
+        url += '&DPI='+valuesPrint.dpi;
+        url += '&TEMPLATE='+valuesPrint.template;
+        url += '&'+composerMap+':extent='+valuesPrint.extent;
+        url += '&'+composerMap+':rotation='+valuesPrint.rotation;
+        url += '&'+composerMap+':scale='+valuesPrint.scale;
         var printLayers = [];
         $.each(map.layers, function(i, l) {
           if (l.getVisibility() && l.CLASS_NAME == "OpenLayers.Layer.WMS")
@@ -1660,115 +1775,480 @@ var lizMap = function() {
     });
     map.events.on({
       "zoomend": function() {
-        if ( dragCtrl.active && layer.getVisibility() ) {
-          var units = map.getUnits();
-          var res = map.getResolution()/2;
-          var scale = OpenLayers.Util.getScaleFromResolution(res, units);
-          var center = map.getCenter();
-          var size = printCapabilities.layouts[0].size;
-          var unitsRatio = OpenLayers.INCHES_PER_UNIT[units];
-          var w = size.width / 72 / unitsRatio * scale / 2;
-          var h = size.height / 72 / unitsRatio * scale / 2;
-          var bounds = new OpenLayers.Bounds(center.lon - w, center.lat - h,
-            center.lon + w, center.lat + h);
-          var geom = bounds.toGeometry();
-          var feat = layer.features[0];
-          geom.id = feat.geometry.id;
-          feat.geometry = geom;
-          layer.drawFeature(feat);
-        }
+//        if ( printCtrlMod.active && printLayer.getVisibility() ) {
+//          var units = map.getUnits();
+//          var res = map.getResolution()/2;
+//          var scale = OpenLayers.Util.getScaleFromResolution(res, units);
+//          var center = map.getCenter();
+//          var size = printCapabilities.layouts[0].size;
+//          var unitsRatio = OpenLayers.INCHES_PER_UNIT[units];
+//          var w = size.width / 72 / unitsRatio * scale / 2;
+//          var h = size.height / 72 / unitsRatio * scale / 2;
+//          var bounds = new OpenLayers.Bounds(center.lon - w, center.lat - h,
+//            center.lon + w, center.lat + h);
+//          var geom = bounds.toGeometry();
+//          var feat = layer.features[0];
+//          geom.id = feat.geometry.id;
+//          feat.geometry = geom;
+//          printLayer.drawFeature(feat);
+//        }
       }
     });
   }
 
-  function addComplexPrintControl() {
-    var ptTomm = 0.35277; //conversion pt to mm
-    var printCapabilities = {scales:[],layouts:[]};
-    for (var i=0, len=composers.length; i<len; i++) {
-      var composer = composers[i];
-      var composerMap = composer.getElementsByTagName('ComposerMap');
-      if (composerMap.length != 0) {
-        composerMap = composerMap[0];
-        var mapWidth = Number(composer.getElementsByTagName('ComposerMap')[0].getAttribute('width')) / ptTomm;
-        var mapHeight = Number(composer.getElementsByTagName('ComposerMap')[0].getAttribute('height')) / ptTomm;
-        //for some strange reason we need to provide a "map" and a "size" object with identical content
-        printCapabilities.layouts.push({
-          "name": composer.getAttribute('name'),
-          "map": {
-            "width": mapWidth,
-            "height": mapHeight
-          },
-          "size": {
-            "width": mapWidth,
-            "height": mapHeight
-          },
-          "rotation": true
-        });
-      }
-    }
-    var layer = map.getLayersByName('Print');
-    if ( layer.length == 0 ) {
-      layer = new OpenLayers.Layer.Vector('Print');
-      map.addLayer(layer);
-      layer.setVisibility(false);
-    } else
-      layer = layer[0];
-    if ( layer.features.length == 0 )
-      layer.addFeatures([
-        new OpenLayers.Feature.Vector(
-          new OpenLayers.Geometry.Polygon([
-                new OpenLayers.Geometry.LinearRing([
-                    new OpenLayers.Geometry.Point(-1, -1),
-                    new OpenLayers.Geometry.Point(1, -1),
-                    new OpenLayers.Geometry.Point(1, 1),
-                    new OpenLayers.Geometry.Point(-1, 1)
-                ])
-            ])
-          )
-        ]);
-    var transformCtrl = new OpenLayers.Control.TransformFeature(layer,{
-      preserveAspectRatio: true,
-      rotate: true,
-      geometryTypes: ['OpenLayers.Geometry.Polygon'],
-      eventListeners: {
-        "activate": function(e) {
-          var units = map.getUnits();
-          var res = map.getResolution()/2;
-          var scale = OpenLayers.Util.getScaleFromResolution(res, units);
-          var center = map.getCenter();
-          var size = printCapabilities.layouts[0].size;
-          var unitsRatio = OpenLayers.INCHES_PER_UNIT[units];
-          var w = size.width / 72 / unitsRatio * scale / 2;
-          var h = size.height / 72 / unitsRatio * scale / 2;
-          var bounds = new OpenLayers.Bounds(center.lon - w, center.lat - h,
-            center.lon + w, center.lat + h);
-          var geom = bounds.toGeometry();
-          var feat = layer.features[0];
-          geom.id = feat.geometry.id;
-          feat.geometry = geom;
-          layer.setVisibility(true);
-          //e.object.setFeature(feat);
-        },
-        "deactivate": function(e) {
-          //layer.destroyFeatures();
-          layer.setVisibility(false);
-        },
-        "beforesetfeature": function(e) {
-        },
-        "setfeature": function(e) {
-        },
-        "beforetransform": function(e) {
-        },
-        "transformcomplete": function(e) {
-        }
-      }
-    });
-    map.addControls([transformCtrl]);
-    controls['printTransform'] = transformCtrl;
-    //pour activer il suffit de faire un setFeature
-    //transformCtrl.setFeature(layer.features[0]);
-    return true;
+//  function addComplexPrintControl() {
+//    var ptTomm = 0.35277; //conversion pt to mm
+//    var printCapabilities = {scales:[],layouts:[]};
+//    for (var i=0, len=composers.length; i<len; i++) {
+//      var composer = composers[i];
+//      var composerMap = composer.getElementsByTagName('ComposerMap');
+//      if (composerMap.length != 0) {
+//        composerMap = composerMap[0];
+//        var mapWidth = Number(composer.getElementsByTagName('ComposerMap')[0].getAttribute('width')) / ptTomm;
+//        var mapHeight = Number(composer.getElementsByTagName('ComposerMap')[0].getAttribute('height')) / ptTomm;
+//        //for some strange reason we need to provide a "map" and a "size" object with identical content
+//        printCapabilities.layouts.push({
+//          "name": composer.getAttribute('name'),
+//          "map": {
+//            "width": mapWidth,
+//            "height": mapHeight
+//          },
+//          "size": {
+//            "width": mapWidth,
+//            "height": mapHeight
+//          },
+//          "rotation": true
+//        });
+//      }
+//    }
+//    var layer = map.getLayersByName('Print');
+//    if ( layer.length == 0 ) {
+//      layer = new OpenLayers.Layer.Vector('Print');
+//      map.addLayer(layer);
+//      layer.setVisibility(false);
+//    } else
+//      layer = layer[0];
+//    if ( layer.features.length == 0 )
+//      layer.addFeatures([
+//        new OpenLayers.Feature.Vector(
+//          new OpenLayers.Geometry.Polygon([
+//                new OpenLayers.Geometry.LinearRing([
+//                    new OpenLayers.Geometry.Point(-1, -1),
+//                    new OpenLayers.Geometry.Point(1, -1),
+//                    new OpenLayers.Geometry.Point(1, 1),
+//                    new OpenLayers.Geometry.Point(-1, 1)
+//                ])
+//            ])
+//          )
+//        ]);
+//    var transformCtrl = new OpenLayers.Control.TransformFeature(layer,{
+//      preserveAspectRatio: true,
+//      rotate: true,
+//      geometryTypes: ['OpenLayers.Geometry.Polygon'],
+//      eventListeners: {
+//        "activate": function(e) {
+//          var units = map.getUnits();
+//          var res = map.getResolution()/2;
+//          var scale = OpenLayers.Util.getScaleFromResolution(res, units);
+//          var center = map.getCenter();
+//          var size = printCapabilities.layouts[0].size;
+//          var unitsRatio = OpenLayers.INCHES_PER_UNIT[units];
+//          var w = size.width / 72 / unitsRatio * scale / 2;
+//          var h = size.height / 72 / unitsRatio * scale / 2;
+//          var bounds = new OpenLayers.Bounds(center.lon - w, center.lat - h,
+//            center.lon + w, center.lat + h);
+//          var geom = bounds.toGeometry();
+//          var feat = layer.features[0];
+//          geom.id = feat.geometry.id;
+//          feat.geometry = geom;
+//          layer.setVisibility(true);
+//          //e.object.setFeature(feat);
+//        },
+//        "deactivate": function(e) {
+//          //layer.destroyFeatures();
+//          layer.setVisibility(false);
+//        },
+//        "beforesetfeature": function(e) {
+//        },
+//        "setfeature": function(e) {
+//        },
+//        "beforetransform": function(e) {
+//        },
+//        "transformcomplete": function(e) {
+//        }
+//      }
+//    });
+//    map.addControls([transformCtrl]);
+//    controls['printTransform'] = transformCtrl;
+//    //pour activer il suffit de faire un setFeature
+//    //transformCtrl.setFeature(layer.features[0]);
+//    return true;
+//  }
+  
+  // START LIST OF PRINT FUNCTIONS
+  function createMenuPrint() {
+	  // Template
+	  $("#print-menu").find("#menu-print-content").append(
+		$("<div>").attr("id", "containerTemplate").attr("class", "printMenuItems").append(
+			$("<div>").attr("class", "titleItem").append(
+				$("<div>").attr("class", "printValue").text(composers[0].getAttribute('name')),
+				$("<div>").attr("class", "printDesc").text("Template"),
+				$("<div>").attr("class", "printImg").append(
+					$("<img>").attr("src", pathImageDown)
+				)				
+			),
+			$("<div>").attr("class", "containerValues").addClass("box-shadow-combo")
+		)
+	  )
+	  for(var i=0; i<composers.length; i++) {
+		$("#containerTemplate").find(".containerValues").append(
+			$("<div>").attr("class", "itemsValues").text(composers[i].getAttribute('name')).click(function() {
+				$("#containerTemplate").find(".printValue").text($(this).text());
+			})
+		)
+	  }
+	  
+	  // Scale
+	  var currentScale = map.getScale();
+	  if ('mapScales' in config.options)
+		  var scales = config.options.mapScales;
+      if ( scales.length == 0 )
+    	  var scales = getRangeScales();
+      
+	  $("#print-menu").find("#menu-print-content").append(
+		$("<div>").attr("id", "containerScale").attr("class", "printMenuItems").append(
+			$("<div>").attr("class", "titleItem").append(
+				$("<div>").attr("class", "printValue").text("1:"+scales[1]),
+				$("<div>").attr("class", "printDesc").text("Scale"),
+				$("<div>").attr("class", "printImg").append(
+					$("<img>").attr("src", pathImageDown)
+				)				
+			),
+			$("<div>").attr("class", "containerValues").addClass("box-shadow-combo")
+		)
+	  )
+	  for(var i=0; i<scales.length; i++) {
+		$("#containerScale").find(".containerValues").append(
+			$("<div>").attr("class", "itemsValues").text("1:"+scales[i]).click(function() {
+				$("#containerScale").find(".printValue").text($(this).text());
+				
+				var polyBound = printLayer.features[0].geometry.getBounds();
+				var originObj = polyBound.getCenterLonLat();
+				
+				var origin = new OpenLayers.Geometry.Point(originObj.lon, originObj.lat);
+				var scale = ($(this).text().split(":")[1])/map.getScale();
+				printLayer.features[0].geometry.resize(scale, origin);
+				printLayer.redraw();
+				map.zoomToScale($(this).text().split(":")[1], false);
+				map.setCenter(originObj);
+			})
+		)
+	  }
+	  
+	  // Format
+	  var defaultFormat = "pdf";
+	  var formats = ["pdf", "png", "jpg"];
+	  
+	  $("#print-menu").find("#menu-print-content").append(
+		$("<div>").attr("id", "containerFormat").attr("class", "printMenuItems").append(
+			$("<div>").attr("class", "titleItem").append(
+				$("<div>").attr("class", "printValue").text(defaultFormat),
+				$("<div>").attr("class", "printDesc").text("Format"),
+				$("<div>").attr("class", "printImg").append(
+					$("<img>").attr("src", pathImageDown)
+				)				
+			),
+			$("<div>").attr("class", "containerValues").addClass("box-shadow-combo")
+		)
+	  )
+	  for(var i=0; i<formats.length; i++) {
+		$("#containerFormat").find(".containerValues").append(
+			$("<div>").attr("class", "itemsValues").text(formats[i]).click(function() {
+				$("#containerFormat").find(".printValue").text($(this).text());
+			})
+		)
+	  }
+	  
+	  // DPI
+	  var defaultDpi = 150;
+	  var dpis = [150, 300, 600];
+	  
+	  $("#print-menu").find("#menu-print-content").append(
+		$("<div>").attr("id", "containerDpi").attr("class", "printMenuItems").append(
+			$("<div>").attr("class", "titleItem").append(
+				$("<div>").attr("class", "printValue").text(defaultDpi),
+				$("<div>").attr("class", "printDesc").text("DPI"),
+				$("<div>").attr("class", "printImg").append(
+					$("<img>").attr("src", pathImageDown)
+				)				
+			),
+			$("<div>").attr("class", "containerValues").addClass("box-shadow-combo")
+		)
+	  )
+	  for(var i=0; i<dpis.length; i++) {
+		$("#containerDpi").find(".containerValues").append(
+			$("<div>").attr("class", "itemsValues").text(dpis[i]).click(function() {
+				$("#containerDpi").find(".printValue").text($(this).text());
+			})
+		)
+	  }
+	  
+	  // ROTATION
+	  $("#print-menu").find("#menu-print-content").append(
+		$("<div>").attr("id", "containerRotation").attr("class", "printMenuItems").append(
+			$("<div>").attr("class", "titleItem").append(
+				$("<div>").attr("id", "printCheckbox").attr("class", "printValue").css("opacity", 0).append(
+					$("<img>").attr("class", "imgCheckBoxRotation").addClass("notChecked").attr("src", pathImageChecked)
+				),
+				$("<div>").attr("class", "printDesc").text("Rotation")
+			)
+		).click(function() {
+			toggleCheckBox($("#printCheckbox"));
+			var enableRotate = getEnableDisableRotate($("#printCheckbox"));
+			toggleRotate(enableRotate);
+		}).mouseover(function(){
+			highLightCheckBox($("#printCheckbox"));
+		}).mouseleave(function(){
+			removeHighLightCheckBox($("#printCheckbox"));
+		})
+	  )
+	  
+	  $(".printMenuItems").click(function(){
+		  toggleComboObj($(this).find(".containerValues"));
+	  });
   }
+  
+  /**
+   * Get Rotation of polygon to print
+   */
+  function getRotationPolygon(polygon) {
+	var vertex = polygon.geometry.components[0].components;	
+	// Check rotation direction and get angle
+	var sides = getSidesTriangle(vertex);		
+	// Calculate rotation
+	if( sides != false)
+		var rotation = (Math.atan(sides["sideY"] / sides["sideX"]) / Math.PI * 180) + sides["angle_rotation"];
+	else
+		rotation = 0;
+	
+	return rotation;
+  }
+  
+  /**
+   * Get Sides of triangle of polygon to print
+   * It is needed to identify rotation angle
+   */
+  function getSidesTriangle(vertex) {
+	var sides = {};
+	
+	if(vertex[3].x > vertex[0].x && vertex[3].y > vertex[0].y) {
+		var sideX = (vertex[3].x - vertex[0].x);
+		var sideY = (vertex[3].y - vertex[0].y);
+		
+		sides["sideX"] = sideX;
+		sides["sideY"] = sideY;
+		sides["angle_rotation"] = 0;
+	}
+	
+	else if(vertex[0].x > vertex[3].x && vertex[0].y > vertex[3].y) {
+		var sideX = (vertex[3].x - vertex[0].x);
+		var sideY = (vertex[3].y - vertex[0].y);
+		
+		sides["sideX"] = sideX;
+		sides["sideY"] = sideY;
+		sides["angle_rotation"] = 180;
+	}
+	
+	else if(vertex[3].x > vertex[0].x && vertex[3].y < vertex[0].y) {
+		var sideX = (vertex[3].x - vertex[0].x);
+		var sideY = (vertex[3].y - vertex[0].y);
+		
+		sides["sideX"] = sideX;
+		sides["sideY"] = sideY;
+		sides["angle_rotation"] = 0;
+	}
+	
+	else if(vertex[3].x < vertex[0].x && vertex[3].y > vertex[0].y) {
+		var sideX = (vertex[3].x - vertex[0].x);
+		var sideY = (vertex[3].y - vertex[0].y);
+		
+		sides["sideX"] = sideX;
+		sides["sideY"] = sideY;
+		sides["angle_rotation"] = 180;
+	}
+	
+	else sides = false;
+	
+	return sides;
+	
+  }
+	
+  /**
+   * Open container values print options
+   */
+  function toggleComboObj(obj) {
+	$(".containerValues").each(function(){
+		$(this).hide("fast");
+	})
+	if(obj.is(":visible"))
+		obj.hide("fast");
+	else
+		obj.show("fast");
+	
+	return true;
+  }
+  
+  /**
+   * Toggle checkbox rotation in print menu
+   */
+  function toggleCheckBox(obj) {
+		var imgObj = $(obj.children("img")[0]);
+		if(imgObj.hasClass("notChecked")) {
+			imgObj.removeClass("notChecked").addClass("checked");
+			obj.css("opacity", 1);
+		}
+		else {
+			imgObj.removeClass("checked").addClass("notChecked");
+			obj.css("opacity", 0);
+			disableRotationPolygon(printLayer.features[0]);
+		}
+		
+		return true;
+  }
+  
+  /**
+   * Create clone of polygon to print to set default bbox (with no rotation)
+   * It is necessary to pass right bbox to print request even if polygon has been rotate
+   */
+  function createClonePolygon(polygon, rotation) {
+	var clonePolygon = polygon.clone();
+	var centerPolygon = clonePolygon.getCentroid();
+	var rotationPolygon = -(rotation);
+	
+	clonePolygon.rotate(rotationPolygon, centerPolygon);
+	
+	return clonePolygon;	
+  }
+  
+  /**
+   * Set position of polygon with no rotation
+   */
+  function disableRotationPolygon(polygon) {
+		var rotation = getRotationPolygon(polygon);	
+		var center = polygon.geometry.getCentroid();
+		var rotationPolygon = -(rotation);
+		
+		polygon.geometry.rotate(rotationPolygon, center);
+		
+		printLayer.redraw();	
+  }
+  
+  /**
+   * Change checkbox style (highlight)
+   */
+  function highLightCheckBox(obj) {
+		var imgObj = $(obj.children("img")[0]);
+		if(imgObj.hasClass("notChecked")) {
+			obj.css("opacity", 0.5);
+		}
+		
+		return true;	
+	}
+  /**
+   * Change checkbox style (remove highligth)
+   */
+  function removeHighLightCheckBox(obj) {
+	  var imgObj = $(obj.children("img")[0]);
+	  if(imgObj.hasClass("notChecked")) {
+		  obj.css("opacity", 0);
+	  }
+		
+	  return true;	
+  }
+  
+  /**
+   *  Get State of checkbox
+   */
+  function getEnableDisableRotate(obj) {
+	  var imgObj = $(obj.children("img")[0]);
+	  if(imgObj.hasClass("notChecked")) {
+		  return false;
+	  }
+	  else {
+		  return true;
+	  }	
+  }
+  
+  /**
+   * Modify controls of modifyFeature openlayers control
+   * Add or remove rotation control on polygon
+   */
+  function toggleRotate(enable) {
+	if(enable) {
+		controls['modPrint'].mode = OpenLayers.Control.ModifyFeature.ROTATE;
+		controls['modPrint'].mode |= OpenLayers.Control.ModifyFeature.RESIZE;
+		controls['modPrint'].mode |= OpenLayers.Control.ModifyFeature.DRAG;
+	}
+	else {
+		controls['modPrint'].mode = OpenLayers.Control.ModifyFeature.RESIZE;
+		controls['modPrint'].mode &= ~OpenLayers.Control.ModifyFeature.RESHAPE;
+		controls['modPrint'].mode |= OpenLayers.Control.ModifyFeature.DRAG;
+	}
+	
+	controls['modPrint'].deactivate();
+	controls['modPrint'].activate();
+  }
+  
+  /**
+   * Get all settings values into print menu
+   */
+  function getValuesMenuPrint() {
+	  var menu = $("#print-menu").find(".menu-content");	  
+	  var template = menu.find("#containerTemplate").find(".printValue").text();
+	  var scale = menu.find("#containerScale").find(".printValue").text();
+	  var format = menu.find("#containerFormat").find(".printValue").text();
+	  var dpi = menu.find("#containerDpi").find(".printValue").text();
+	  var rotation = getRotationPolygon(printLayer.features[0]);
+	  
+	  if(rotation == 0) {
+		  var polyBound = printLayer.features[0].geometry.getBounds();	
+		  var extentBound = polyBound.left+","+polyBound.bottom+","+polyBound.right+","+polyBound.top;
+	  }
+	  else {
+		  var clonePolygon = createClonePolygon(printLayer.features[0].geometry, rotation);
+		  var polyBound = clonePolygon.getBounds();	
+		  var extentBound = polyBound.left+","+polyBound.bottom+","+polyBound.right+","+polyBound.top;		
+	  }
+	  
+	  var values = {
+		"template": template,
+		"format": format,
+		"dpi": dpi,
+		"rotation": rotation,
+		"extent": extentBound,
+		"scale": scale
+	  }
+	  
+	  return values;
+  }
+  
+  /**
+   * Get Range scale from min and max scales
+   */
+  
+  function getRangeScales() {
+	  var rangeScales = [];
+	  var maxScale = parseInt(config.options.maxScale);
+	  var minScale = parseInt(config.options.minScale)
+	  rangeScales.push(maxScale);
+	  var middleScale = minScale*2;
+	  while (middleScale < maxScale) {
+		  rangeScales.push(middleScale);
+		  middleScale = middleScale*2;
+	  }
+	  return rangeScales;
+  }
+  // END PRINT FUNCTIONS
 
   function addEditionControls() {
     // Edition layers
