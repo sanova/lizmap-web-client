@@ -41,7 +41,8 @@ var lizMap = function() {
   var controls = {};
   
   /**
-   * 
+   *  PRIVATE Property: printLayer
+   *  {Object(<OpenLayers.Layer>)} Layer of print polygon
    */
   var printLayer;
   
@@ -1490,26 +1491,15 @@ var lizMap = function() {
     //addComplexPrintControl();
   }
 
-//  function deactivateToolControls( evt ) {
-//    for (var id in controls) {
-//      var ctrl = controls[id];
-//      if (evt && ('object' in evt) && ctrl == evt.object)
-//        continue;
-//      if (ctrl.type == OpenLayers.Control.TYPE_TOOL)
-//        ctrl.deactivate();
-//    }
-//    return true;
-//  }
-  
-  function deactivateToolControls(evt) {
-	  for (var key in controls) {
-		  var ctrl = controls[key];
-		  if(ctrl == evt.object || ctrl == evt)
-			  continue;
-		  else 
-			  ctrl.deactivate();
-	  }
-	  return true;
+  function deactivateToolControls( evt ) {
+    for (var id in controls) {
+      var ctrl = controls[id];
+      if (evt && ('object' in evt) && ctrl == evt.object)
+        continue;
+      if (ctrl.type == OpenLayers.Control.TYPE_TOOL)
+        ctrl.deactivate();
+    }
+    return true;
   }
 
   function addFeatureInfo() {
@@ -1595,7 +1585,7 @@ var lizMap = function() {
     var composer = composers[0];
     var composerMap = composer.getElementsByTagName('ComposerMap');
     
-	if (composerMap.length != 0) {
+//	if (composerMap.length != 0) {
 //      composerMap = composerMap[0];
 //      var mapWidth = Number(composerMap.getAttribute('width')) / ptTomm;
 //      var mapHeight = Number(composerMap.getAttribute('height')) / ptTomm;
@@ -1641,8 +1631,8 @@ var lizMap = function() {
 //            ])
 //          )
 //        ]);
-    	
-    }
+//    	
+//    }
 	
 	createMenuPrint();
 	
@@ -1885,7 +1875,11 @@ var lizMap = function() {
 //    return true;
 //  }
   
-  // START LIST OF PRINT FUNCTIONS
+  /* 
+   *  PRINT FUNCTION UTILITIES
+   */
+   
+  // Create print menu
   function createMenuPrint() {
 	  // Template
 	  $("#print-menu").find("#menu-print-content").append(
@@ -2248,8 +2242,10 @@ var lizMap = function() {
 	  }
 	  return rangeScales;
   }
-  // END PRINT FUNCTIONS
-
+  /*
+   *  END PRINT FUNCTIONS
+   */
+	
   function addEditionControls() {
     // Edition layers
     if ('editionLayers' in config) {
